@@ -11,19 +11,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3.5.2
-#    - name: If failed, means ok
-#      run: ./not-exist-file.sh it bloke build
     - name: Preparing Linux Environment
       run: sudo apt-get update
     - name: Setting Up the Ubuntu Environment
-    #  if: ${{ failure() }}
-      run: bash linux-ssh.sh
-      env:
-        LINUX_USER_PASSWORD: ${{ secrets.LINUX_USER_PASSWORD }}
-        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-        CHROME_HEADLESS_CODE: ${{ secrets.CHROME_HEADLESS_CODE }}
-        LINUX_MACHINE_NAME: ${{ secrets.LINUX_MACHINE_NAME }}
-        LINUX_USERNAME: ${{ secrets.LINUX_USERNAME }}
+      run: |
+        # Install and start SSH server
+        sudo apt-get install -y openssh-server
+        sudo systemctl enable ssh
+        sudo systemctl start ssh
+        
+        # Create user (if not exists) and set password
+        sudo useradd -m -s /bin/bash ${{ secrets.LINUX_USERNAME }} || true
+        echo "${{ secrets.LINUX_USERNAME }}:${{ secrets.LINUX_USER_PASSWORD }}" | sudo chpasswd
+        
+        # Optional: Any other setup from your original linux-ssh.sh (e.g., Chrome headless if needed)
+        # Add here if relevant, e.g., export CHROME_HEADLESS_CODE=${{ secrets.CHROME_HEADLESS_CODE }}
+        
+        # Install Bore (free tunneling tool)
+        wget -q https://github.com/ekzhang/bore/releases/latest/download/bore-x86_64-unknown-linux-gnu.tar.gz
+        tar -xzf bore-x86_64-unknown-linux-gnu.tar.gz
+        sudo mv bore /usr/local/bin/
+        
+        # Start free Bore tunnel for SSH (runs in background)
+        # This exposes port 22; Bore will output the tunnel URL in logs (e.g., listening at bore.pub:xxxxx)
+        # SSH into the VM using: ssh -p <xxxxx> ${{ secrets.LINUX_USERNAME }}@bore.pub
+        bore local 22 --to bore.pub &
     - name: Keep Running Ubuntu System and keepAlive
-     # if: ${{ failure() }}
       run: sleep 6h
