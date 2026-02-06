@@ -22,9 +22,13 @@ jobs:
         sudo useradd -m -s /bin/bash ${{ secrets.LINUX_USERNAME }} || true
         echo "${{ secrets.LINUX_USERNAME }}:${{ secrets.LINUX_USER_PASSWORD }}" | sudo chpasswd
         
-        # Switch to the user and set up VNC
+        # Add user to sudo group for admin access (fixes permission issues)
+        sudo usermod -aG sudo ${{ secrets.LINUX_USERNAME }}
+        
+        # Switch to the user and set up VNC (with proper permissions)
         sudo -u ${{ secrets.LINUX_USERNAME }} bash -c "
           # Set VNC password (using the same as user password for simplicity; change if needed)
+          mkdir -p ~/.vnc
           echo '${{ secrets.LINUX_USER_PASSWORD }}' | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
           
