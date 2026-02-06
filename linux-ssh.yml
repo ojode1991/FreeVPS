@@ -15,16 +15,24 @@ jobs:
       run: sudo apt-get update
     - name: Setting Up the Ubuntu Environment
       run: |
-        # Install and start SSH server
-        sudo apt-get install -y openssh-server
-        sudo systemctl enable ssh
-        sudo systemctl start ssh
+        # Install lightweight desktop (XFCE) and VNC server
+        sudo apt-get install -y xfce4 xfce4-goodies tightvncserver
         
         # Create user (if not exists) and set password
         sudo useradd -m -s /bin/bash ${{ secrets.LINUX_USERNAME }} || true
         echo "${{ secrets.LINUX_USERNAME }}:${{ secrets.LINUX_USER_PASSWORD }}" | sudo chpasswd
         
-        # Optional: Any other setup from your original linux-ssh.sh (e.g., Chrome headless if needed)
+        # Switch to the user and set up VNC
+        sudo -u ${{ secrets.LINUX_USERNAME }} bash -c "
+          # Set VNC password (using the same as user password for simplicity; change if needed)
+          echo '${{ secrets.LINUX_USER_PASSWORD }}' | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+          
+          # Start VNC server on display :1 (port 5901 by default) with 1920x1080 resolution
+          vncserver -geometry 1920x1080 :1
+        "
+        
+        # Optional: Any other setup (e.g., Chrome headless if needed)
         # Add here if relevant, e.g., export CHROME_HEADLESS_CODE=${{ secrets.CHROME_HEADLESS_CODE }}
         
         # Install Bore (free tunneling tool)
@@ -32,9 +40,9 @@ jobs:
         tar -xzf bore-x86_64-unknown-linux-gnu.tar.gz
         sudo mv bore /usr/local/bin/
         
-        # Start free Bore tunnel for SSH (runs in background)
-        # This exposes port 22; Bore will output the tunnel URL in logs (e.g., listening at bore.pub:xxxxx)
-        # SSH into the VM using: ssh -p <xxxxx> ${{ secrets.LINUX_USERNAME }}@bore.pub
-        bore local 22 --to bore.pub &
+        # Start free Bore tunnel for VNC (port 5901, as VNC uses :1 by default; runs in background)
+        # Bore will output the tunnel URL in logs (e.g., listening at bore.pub:xxxxx)
+        # Connect with Remmina using VNC protocol to bore.pub:xxxxx
+        bore local 5901 --to bore.pub &
     - name: Keep Running Ubuntu System and keepAlive
       run: sleep 6h
